@@ -8,7 +8,7 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-xl sm:rounded-lg overflow-hidden">
-                <x-agora-call :uid="$uid" :name="$name" :token="$token" :app_id="$appId" :chatToken="$chatToken" />
+                <x-agora-call :uid="$uid" :name="$name" :token="$token" :app_id="$appId" :chatToken="$chatToken" :userId="$userId" />
             </div>
         </div>
     </div>

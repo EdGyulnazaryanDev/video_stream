@@ -1,7 +1,73 @@
-@props(['uid', 'name', 'token', 'app_id'])
+@props(['uid', 'name', 'token', 'app_id', 'userId', 'userName'])
+<style>
+    .chat-container {
+        max-width: 600px;
+        margin: 0 auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+    }
+
+    .message-box {
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+        background: #f9f9f9;
+    }
+
+    .message {
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        border-radius: 18px;
+        max-width: 70%;
+        word-wrap: break-word;
+    }
+
+    .message.sent {
+        background: #007bff;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 0;
+    }
+
+    .message.received {
+        background: #e9ecef;
+        margin-right: auto;
+        border-bottom-left-radius: 0;
+    }
+
+    .message-input {
+        display: flex;
+        padding: 10px;
+        background: #fff;
+        border-top: 1px solid #ddd;
+    }
+
+    .message-input input {
+        flex-grow: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        outline: none;
+    }
+
+    .message-input button {
+        margin-left: 10px;
+        padding: 10px 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+    .message-input button:hover {
+        background: #0056b3;
+    }
+</style>
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-
 <div class="bg-gray-900 text-white p-6 min-h-screen">
     <h1 class="text-xl mb-4">Agora Video Call</h1>
     <h2>Username: {{ $name }} </h2>
@@ -17,26 +83,21 @@
 
     <div id="video-container" class="grid grid-cols-2 gap-4 mt-4"></div>
 
-    <div id="chat-container" class="grid grid-cols-2 gap-4 mt-4">
+    <div class="mt-8 border rounded-lg overflow-hidden max-w-lg mx-auto">
+        <div class="p-4 bg-gray-800 text-white">
+            <h3 class="text-lg font-semibold">Chat</h3>
+            <div id="connection-status" class="text-sm">Status: connecting...</div>
+        </div>
 
+        <div id="message-box" class="h-64 overflow-y-auto p-4 bg-gray-100">
+        </div>
+
+        <div class="flex p-4 bg-white border-t">
+            <input type="text" id="message" placeholder="Type your message..."
+                   class="flex-1 px-4 py-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900">
+            <button id="send_btn" class="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700">Send</button>
+        </div>
     </div>
-
-{{--    <form id="message-form">--}}
-{{--        <div id="chat-box" class="chat-box border p-2">--}}
-{{--            <div id="chat-messages" class="h-40 overflow-y-auto mb-2 border p-2 bg-white text-gray-900"></div>--}}
-{{--            <input type="text" id="chat-input" placeholder="Type a message..." class="w-full p-1 border text-gray-900" />--}}
-{{--            <button type="submit" class="mt-2 bg-blue-500 text-white px-3 py-1">Send</button>--}}
-{{--        </div>--}}
-{{--    </form>--}}
-
-    <div id="chat-box" style="border:1px solid #ccc; padding:10px; height:200px; overflow-y:scroll;">
-        <!-- Messages will appear here -->
-    </div>
-    <form id="chat-form">
-        <input type="text" id="message" placeholder="Type your message" required class="text-gray-900">
-        <button type="submit">Send</button>
-    </form>
-
 
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 
@@ -84,6 +145,7 @@
         document.getElementById("leaveCall").onclick = leaveCall;
 
         document.getElementById("toggleMic").onclick = () => {
+            console.log('Mic toggled')
             localTracks.audioTrack.setMuted(!localTracks.audioTrack.muted);
         };
 
@@ -108,63 +170,83 @@
         });
     </script>
 
-    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+
+    <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
     <script>
+        // Initialize Pusher
+        const pusher = new Pusher('6541cffdd36c25e50b25', {
+            cluster: 'ap2',
+            forceTLS: true
+        });
 
-        // document.getElementById('chat-form').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-        //     let message = document.getElementById('chat-input').value;
-        //     axios.post('/send-message', { message });
-        //     document.getElementById('chat-input').value = '';
-        //
-        // });
-        // var pusher = new Pusher('6541cffdd36c25e50b25', {
-        //     cluster: 'ap2',
-        //     authEndpoint: '/broadcasting/auth',
-        //     auth: {
-        //         headers: {
-        //             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        //         }
-        //     }
-        // });
-        //
-        // const channel = pusher.subscribe('private-chat');
-        // channel.bind('App\\Events\\MessageSent', function(data) {
-        //     const box = document.getElementById('chat-box');
-        //     box.innerHTML += `<p><strong>${data.user}:</strong> ${data.message}</p>`;
-        //     box.scrollTop = box.scrollHeight;
-        // });
+        // Connection status
+        pusher.connection.bind('state_change', (states) => {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.textContent = `Status: ${states.current}`;
+            statusEl.style.color = states.current === 'connected' ? 'green' : 'red';
+        });
 
+        const channel = pusher.subscribe('stream_channel');
 
-        axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-        axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        // Display message function
+        function displayMessage(data, isSent = false) {
+            const messageBox = document.getElementById('message-box');
+            const messageElement = document.createElement('div');
 
-        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            // Tailwind classes for message styling
+            messageElement.className = `mb-3 p-3 rounded-lg max-w-xs ${isSent ?
+                'ml-auto bg-blue-600 text-white rounded-br-none' :
+                'mr-auto bg-gray-300 text-gray-900 rounded-bl-none'}`;
+
+            messageElement.innerHTML = `
+            <div class="font-semibold">${data.user?.name || 'User'}</div>
+            <div class="text-sm">${data.message}</div>
+            <div class="text-xs opacity-70 mt-1">${new Date().toLocaleTimeString()}</div>
+        `;
+
+            messageBox.appendChild(messageElement);
+            messageBox.scrollTop = messageBox.scrollHeight;
+        }
+
+        // Send message handler
+        document.getElementById('send_btn').addEventListener('click', function(e) {
             e.preventDefault();
-            let message = document.getElementById('message').value;
-            axios.post('/send-message', { message });
-            document.getElementById('message').value = '';
+            const messageInput = document.getElementById('message');
+            const message = messageInput.value.trim();
+
+            if (!message) return;
+
+            axios.post('/send-message', { message })
+                .then(() => {
+                    // displayMessage({
+                    //     user: { name: 'You' },
+                    //     message: message
+                    // }, true);
+                    messageInput.value = '';
+                })
+                .catch(error => {
+                    console.error('Error:', error.response?.data || error.message);
+                });
         });
 
-        Pusher.logToConsole = true;
-        const pusher = new Pusher('{{ env("PUSHER_APP_KEY") }}', {
-            cluster: '{{ env("PUSHER_APP_CLUSTER") }}',
-            forceTLS: true,
-            authEndpoint: '/broadcasting/auth',
-            auth: {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                }
-            }
+        // Receive messages from Pusher
+        channel.bind('stream_event', function(data) {
+            displayMessage(data);
         });
 
-        const channel = pusher.subscribe('private-chat');
-        channel.bind('MessageSent', function(data) {
-            alert(1)
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<p><strong>${data.user}:</strong> ${data.message}</p>`;
-            box.scrollTop = box.scrollHeight;
+        // Typing indicator (optional)
+        document.getElementById('message').addEventListener('input', _.debounce(() => {
+            channel.trigger('client-typing', {
+                userId: @json($userId),
+                isTyping: true
+            });
+        }, 300));
+
+        channel.bind('client-typing', (data) => {
+            console.log(`${data.userId} is typing...`);
+            // You can add a typing indicator UI here if needed
         });
 
     </script>
+
 </div>

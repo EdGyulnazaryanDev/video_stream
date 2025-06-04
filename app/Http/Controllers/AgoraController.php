@@ -18,11 +18,12 @@ class AgoraController extends Controller
         $user = auth()->user();
         $uid = $user->uid;
         $name = $user->name;
+        $userId = $user->id;
         $channelName = $request->get('channelName', 'testChannel');
         $token = $agora->generateToken($channelName, $uid);
         $appId = env('AGORA_APP_ID');
         $chatToken = env('AGORA_CHAT_APP_TOKEN');
-        return view('call', compact('uid', 'name', 'token', 'appId', 'chatToken'));
+        return view('call', compact('uid', 'name', 'userId', 'token', 'appId', 'chatToken'));
     }
     public function generateToken(Request $request)
     {
@@ -36,7 +37,7 @@ class AgoraController extends Controller
             return response()->json([
                 'uid' => $uid,
                 'token' => $token,
-                'appId' => config('agora.app_id'),9
+                'appId' => config('agora.app_id'),
             ]);
         } catch (\Throwable $throwable) {
             Log::error($throwable);
